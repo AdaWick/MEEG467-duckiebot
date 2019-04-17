@@ -27,4 +27,4 @@ control==0.8.1
 
 # SystemCmd
 jpeg4py
-networkx
+networkx==2.2
