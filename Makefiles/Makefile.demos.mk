@@ -66,12 +66,12 @@ turn-duration-%: check-environment
 
 
 
-# Demos for Jacopo Tani's Control Systems II course 2019 (docker)
-csii-ex%: check-environment
+# Demos for MEEG 467/667 Spring 2019 (docker)
+meeg467-ex%: check-environment
 	bash -c "roslaunch duckietown_demos lane_following_exercise.launch exercise_name:=$*"
 
 word-split = $(word $2,$(subst -, ,$1))
 
-csii-edit-ex%: check-environment
+meeg467-edit-ex%: check-environment
 	bash -c "vim CSII/Exercises/HWExercise$(call word-split,$*,1)/controller-$(call word-split,$*,2).py"
 
