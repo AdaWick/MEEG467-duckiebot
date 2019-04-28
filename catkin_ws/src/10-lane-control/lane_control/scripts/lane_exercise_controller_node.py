@@ -83,7 +83,7 @@ class lane_controller(object):
 
         # Setup subscriptions for HWExercise 2
         if int(self.exercise[0]) == 2:
-            self.sub_veh_pos = rospy.Subscriber("~veh_pos", VehiclePose, self.cbVehPose, queue_size=1)
+            self.sub_veh_pos = rospy.Subscriber("/" + str(veh_name) + "/vehicle_filter_node/pose", VehiclePose, self.cbVehPose, queue_size=1)
 
 
     def stopVeh(self, nth):
