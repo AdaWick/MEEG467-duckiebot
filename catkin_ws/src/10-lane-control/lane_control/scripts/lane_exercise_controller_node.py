@@ -70,7 +70,7 @@ class lane_controller(object):
         # Timer for abrupt stopVeh
         self.stopTimer = None
 
-        # Setup array for time delay
+        # Set up array for time delay
         if int(self.exercise[0]) == 1 and int(self.exercise[1]) == 5:
             k_d = self.controller_class.k_d
             if k_d > 0:
@@ -81,61 +81,77 @@ class lane_controller(object):
         rospy.loginfo("[%s] Initialized " %(rospy.get_name()))
         rospy.loginfo("\n\n\n\n\nREADY FOR EXERCISE " + exercise_name + "\n\n\n\n\n")
 
-        # Setup subscriptions for HWExercise 2
-        if int(self.exercise[0]) == 2:
-            self.sub_veh_pos = rospy.Subscriber("/" + str(veh_name) + "/vehicle_filter_node/pose", VehiclePose, self.cbVehPose, queue_size=1)
-
+        # Set up subscriptions for HWExercise 2-3
+        if int(self.exercise[0]) > 1:
+	    self.sub_veh_pos = rospy.Subscriber("/" + str(veh_name) + "/vehicle_filter_node/pose", VehiclePose, self.cbVehPose, queue_size=1)
+	
+	# Set up variables for HWExercise 3
+	self.last_rho = 0
+	self.last_theta = 0
+	self.last_psi = 0
 
     def stopVeh(self, nth):
-        car_control_msg = Twist2DStamped()
-        car_control_msg.v = 0.0
-        car_control_msg.omega = 0.0
-        self.publishCmd(car_control_msg)
+        if int(self.exercise[0]) == 2:
+            car_control_msg = Twist2DStamped()
+            car_control_msg.v = 0.0
+            car_control_msg.omega = 0.0
+            self.publishCmd(car_control_msg)
+        else:
+            self.last_rho = 0
+	    self.last_theta = 0
+	    self.last_psi = 0
 
     def cbVehPose(self, pose_msg):
-        if self.stopTimer is not None:
+	if self.stopTimer is not None:
             self.stopTimer.shutdown()
-        # Calculating the delay image processing took
-        timestamp_now = rospy.Time.now()
-        image_delay_stamp = timestamp_now - pose_msg.header.stamp
 
-        # delay from taking the image until now in seconds
-        t_delay = image_delay_stamp.secs + image_delay_stamp.nsecs/1e9
+        if int(self.exercise[0]) == 2:
+            # Calculating the delay image processing took
+            timestamp_now = rospy.Time.now()
+            image_delay_stamp = timestamp_now - pose_msg.header.stamp
 
-        # Calculate time since last command
-        currentMillis = int(round(time.time() * 1000))
-        if self.last_ms is not None:
-            dt_last = (currentMillis - self.last_ms) / 1000.0
-        else:
-            dt_last = 0 # None before, let's make 0 such that it is way simpler for students
+            # delay from taking the image until now in seconds
+            t_delay = image_delay_stamp.secs + image_delay_stamp.nsecs/1e9
 
-        # Return if not in autopilot
-        if not self.operating:
+            # Calculate time since last command
+            currentMillis = int(round(time.time() * 1000))
+            if self.last_ms is not None:
+                dt_last = (currentMillis - self.last_ms) / 1000.0
+            else:
+                dt_last = 0 # None before, let's make 0 such that it is way simpler for students
+
+            # Return if not in autopilot
+            if not self.operating:
+                self.last_ms = currentMillis
+                return
+
+            # Obtain parameters for controller
+            rho = pose_msg.rho.data
+            theta = pose_msg.theta.data
+            psi = pose_msg.psi.data
+
+            # Obtain new v and omega from controller
+            v_out, omega_out = self.controller_class.getControlOutput(rho, theta, psi, t_delay, dt_last)
+
+            # Print out inputs and outputs
+	    rospy.loginfo("Rho: " + str(rho) + "    Theta: " + str(theta) + "    Psi: " + str(psi) )
+            rospy.loginfo("Omega: " + str(omega_out) + "    V: " + str(v_out) + "    Delay: " + str(t_delay) + "    T: " + str(dt_last) )
+
+            # Create message and publish
+            car_control_msg = Twist2DStamped()
+            car_control_msg.header = pose_msg.header
+            car_control_msg.v = v_out
+            car_control_msg.omega = omega_out
+            self.publishCmd(car_control_msg)
+
+            # Update last timestamp
             self.last_ms = currentMillis
-            return
 
-        # Obtain parameters for controller
-        rho = pose_msg.rho.data
-        theta = pose_msg.theta.data
-        psi = pose_msg.psi.data
-
-
-        # Obtain new v and omega from controller
-        v_out, omega_out = self.controller_class.getControlOutput(rho, theta, psi, t_delay, dt_last)
-
-
-        # Print out infos
-        rospy.loginfo("Omega: " + str(omega_out) + "    V: " + str(v_out) + "    Delay: " + str(t_delay) + "    T: " + str(dt_last) )
-
-        # Create message and publish
-        car_control_msg = Twist2DStamped()
-        car_control_msg.header = pose_msg.header
-        car_control_msg.v = v_out
-        car_control_msg.omega = omega_out
-        self.publishCmd(car_control_msg)
-
-        # Update last timestamp
-        self.last_ms = currentMillis
+        else:
+            # Obtain parameters for controller
+            self.last_rho = pose_msg.rho.data
+            self.last_theta = pose_msg.theta.data
+            self.last_psi = pose_msg.psi.data
 
         self.stopTimer = rospy.Timer(rospy.Duration(1), self.stopVeh, oneshot=True)
 
@@ -213,7 +229,10 @@ class lane_controller(object):
         ########## END SUBEXERCISE CUSTOMIZATION BEFORE CONTROLLER ##########
 
         # Obtain new v and omega
-        v_out, omega_out = self.controller_class.getControlOutput(d_est, phi_est, d_ref, phi_ref, v_ref, t_delay, dt_last)
+	if int(self.exercise[0]) == 1:
+            v_out, omega_out = self.controller_class.getControlOutput(d_est, phi_est, d_ref, phi_ref, v_ref, t_delay, dt_last)
+        else:
+            v_out, omega_out = self.controller_class.getControlOutput(d_est, phi_est, d_ref, phi_ref, v_ref, self.last_rho, self.last_theta, self.last_psi, t_delay, dt_last)
 
 
         ########## SUBEXERCISE CUSTOMIZATION AFTER CONTROLLER ##########
@@ -231,8 +250,11 @@ class lane_controller(object):
         ########## END SUBEXERCISE CUSTOMIZATION AFTER CONTROLLER ##########
 
 
-        # Print out infos
-        rospy.loginfo("Omega: " + str(omega_out) + "    V: " + str(v_out) + "    Err: " + str(d_est - d_ref))
+        # Print out inputs and outputs
+        if int(self.exercise[0]) != 1:
+            rospy.loginfo("Rho: " + str(self.last_rho) + "    Theta: " + str(self.last_theta) + "    Psi: " + str(self.last_psi) )
+        rospy.loginfo("D: " + str(d_est) + "    Phi: " + str(phi_est) )
+        rospy.loginfo("Omega: " + str(omega_out) + "    V: " + str(v_out) + "    Err: " + str(d_est - d_ref) )
 
         # Create message and publish
         car_control_msg = Twist2DStamped()
