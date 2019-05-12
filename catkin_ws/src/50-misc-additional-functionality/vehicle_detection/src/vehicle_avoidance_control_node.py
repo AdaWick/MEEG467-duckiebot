@@ -183,18 +183,18 @@ class VehicleAvoidanceControlNode(object):
 	def cbCarCmd(self, car_cmd_msg):
 		car_cmd_msg_current = Twist2DStamped()
 		car_cmd_msg_current = car_cmd_msg
-		car_cmd_msg_current.header.stamp = rospy.Time.now()
-		if self.detection:
-			car_cmd_msg_current.v = self.v
-			if self.v == 0:
-				car_cmd_msg_current.omega = 0
+		#car_cmd_msg_current.header.stamp = rospy.Time.now()
+		#if self.detection:
+		#	car_cmd_msg_current.v = self.v
+		#	if self.v == 0:
+		#		car_cmd_msg_current.omega = 0
 			#print(self.v)
 
-		if self.detection_prev and not self.detection:
-			car_cmd_msg_current.v=0
+		#if self.detection_prev and not self.detection:
+		#	car_cmd_msg_current.v=0
 
-		if car_cmd_msg_current.v>=0.25:
-			car_cmd_msg_current.v=0.25
+		#if car_cmd_msg_current.v>=0.25:
+		#	car_cmd_msg_current.v=0.25
 
 		self.car_cmd_pub.publish(car_cmd_msg_current)
 		#print(self.v_gain)
